@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seating Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0e11;
+    --surface: #19181d;
+    --surface2: #222129;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.15);
+    --text: #f0eef5;
+    --muted: #7c798a;
+    --faint: #3a3844;
+    --amber: #e8a838;
+    --amber-dim: rgba(232,168,56,0.12);
+    --amber-mid: rgba(232,168,56,0.25);
+    --teal: #2fcb97;
+    --teal-dim: rgba(47,203,151,0.1);
+    --teal-text: #1d9e75;
+    --booth-accent: #8b7cf8;
+    --booth-dim: rgba(139,124,248,0.1);
+    --table-accent: #e8a838;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    padding: 2rem 2.5rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .header-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+
+  .header-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-weight: 300;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .stat-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 14px;
+    text-align: center;
+  }
+
+  .stat-pill .val {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .stat-pill .lbl {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 1px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Floor Plan Map ── */
+  .map-section {
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .map-toggle {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 14px 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .map-toggle:hover { color: var(--text); }
+
+  .map-toggle-label { display: flex; align-items: center; gap: 8px; }
+
+  .map-arrow {
+    font-size: 10px;
+    transition: transform 0.25s;
+  }
+
+  .map-toggle.open .map-arrow { transform: rotate(180deg); }
+
+  .map-body {
+    display: none;
+    padding: 0 2.5rem 1.5rem;
+  }
+
+  .map-body.open { display: block; }
+
+  .map-body svg {
+    width: 100%;
+    height: auto;
+  }
+
+  /* Room shell */
+  .room-shell {
+    fill: rgba(255,255,255,0.025);
+    stroke: rgba(255,255,255,0.18);
+    stroke-width: 2;
+  }
+
+  /* Booth fills */
+  .fp-booth {
+    fill: rgba(139,124,248,0.13);
+    stroke: rgba(139,124,248,0.45);
+    stroke-width: 1.5;
+  }
+
+  /* Table fills */
+  .fp-table {
+    fill: rgba(232,168,56,0.12);
+    stroke: rgba(232,168,56,0.5);
+    stroke-width: 1.5;
+  }
+
+  /* Divider line */
+  .fp-divider {
+    stroke: rgba(255,255,255,0.08);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  /* Number labels */
+  .fp-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    fill: rgba(255,255,255,0.55);
+  }
+
+  .fp-id {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .fp-id-booth { fill: rgba(139,124,248,0.75); }
+  .fp-id-table { fill: rgba(232,168,56,0.8); }
+
+  /* Tiny seat dots for booths */
+  .fp-seat-dot { opacity: 0.35; }
+  .fp-seat-dot-booth { fill: #8b7cf8; }
+  .fp-seat-dot-table { fill: #e8a838; }
+
+  /* Legend */
+  .map-legend {
+    display: flex;
+    gap: 18px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .swatch-booth {
+    background: rgba(139,124,248,0.3);
+    border: 1px solid rgba(139,124,248,0.6);
+  }
+
+  .swatch-table {
+    background: rgba(232,168,56,0.25);
+    border: 1px solid rgba(232,168,56,0.6);
+  }
+
+  /* ── existing layout ── */
+  .floor {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    padding: 2rem 2.5rem;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .divider {
+    width: 1px;
+    background: var(--border);
+    margin: 0 2rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .divider-label {
+    writing-mode: vertical-rl;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    background: var(--bg);
+    padding: 10px 0;
+  }
+
+  .tables-col {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .booth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .booth-card:hover { border-color: rgba(139,124,248,0.3); }
+
+  .booth-card .card-header {
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .booth-id {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--booth-accent);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .type-badge {
+    font-size: 10px;
+    font-weight: 400;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  .badge-booth {
+    background: var(--booth-dim);
+    color: var(--booth-accent);
+    border: 1px solid rgba(139,124,248,0.25);
+  }
+
+  .badge-table {
+    background: var(--amber-dim);
+    color: var(--amber);
+    border: 1px solid rgba(232,168,56,0.25);
+  }
+
+  .count-badge {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .seats-grid {
+    padding: 8px 16px 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .seat-wrap { position: relative; }
+
+  .seat-num {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--muted);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .seat-input {
+    width: 100%;
+    height: 34px;
+    padding: 0 8px 0 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .seat-input::placeholder { color: var(--faint); font-size: 12px; }
+
+  .seat-input:focus {
+    border-color: rgba(139,124,248,0.5);
+    background: #1f1e26;
+  }
+
+  .seat-input.has-val {
+    border-color: rgba(139,124,248,0.3);
+    background: rgba(139,124,248,0.07);
+    color: #c8c2ff;
+  }
+
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .table-card:hover { border-color: rgba(232,168,56,0.3); }
+
+  .table-card .card-header {
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .table-id {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .table-card .seat-input:focus {
+    border-color: rgba(232,168,56,0.5);
+    background: #201d14;
+  }
+
+  .table-card .seat-input.has-val {
+    border-color: rgba(232,168,56,0.3);
+    background: rgba(232,168,56,0.07);
+    color: #f0c97a;
+  }
+
+  .action-bar {
+    padding: 1.25rem 2.5rem 2rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-save {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 22px;
+    background: var(--amber);
+    color: #1a1600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .btn-save:hover { opacity: 0.88; }
+  .btn-save:active { transform: scale(0.97); }
+
+  .btn-clear {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 9px 16px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .btn-clear:hover { border-color: var(--border-hover); color: var(--text); }
+
+  .toast {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--teal);
+    background: var(--teal-dim);
+    border: 1px solid rgba(47,203,151,0.25);
+    border-radius: 20px;
+    padding: 6px 14px;
+  }
+
+  .progress-bar {
+    height: 2px;
+    background: var(--faint);
+    border-radius: 2px;
+    margin: 0 16px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .booth-progress { background: var(--booth-accent); }
+  .table-progress { background: var(--amber); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="header-title">Floor plan</div>
+    <div class="header-sub">Assign guests to booths and tables</div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-pill">
+      <div class="val" id="statGuests">0</div>
+      <div class="lbl">Guests</div>
+    </div>
+    <div class="stat-pill">
+      <div class="val" id="statDone">0/6</div>
+      <div class="lbl">Full</div>
+    </div>
+    <div class="stat-pill">
+      <div class="val" id="statOpen">24</div>
+      <div class="lbl">Open</div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Floor Plan Map ── -->
+<div class="map-section">
+  <button class="map-toggle" id="mapToggleBtn" onclick="toggleMap()">
+    <span class="map-toggle-label">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="opacity:.6">
+        <rect x="1" y="1" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="8" y="1" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="1" y="8" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+        <rect x="8" y="8" width="5" height="5" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+      </svg>
+      Room layout
+    </span>
+    <span class="map-arrow" id="mapArrow">▼</span>
+  </button>
+
+  <div class="map-body" id="mapBody">
+    <svg viewBox="0 0 680 320" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- Room outline -->
+      <rect x="30" y="20" width="620" height="280" rx="20" class="room-shell"/>
+
+      <!-- Vertical center divider (dashed) -->
+      <line x1="340" y1="30" x2="340" y2="290" class="fp-divider"/>
+      <!-- Horizontal dividers -->
+      <line x1="40" y1="113" x2="330" y2="113" class="fp-divider"/>
+      <line x1="350" y1="113" x2="640" y2="113" class="fp-divider"/>
+      <line x1="40" y1="206" x2="330" y2="206" class="fp-divider"/>
+      <line x1="350" y1="206" x2="640" y2="206" class="fp-divider"/>
+
+      <!-- ── Booth A1 (section 4, top-left) ── -->
+      <rect x="50" y="35" width="270" height="68" rx="14" class="fp-booth"/>
+      <!-- Booth backrest visual -->
+      <rect x="58" y="41" width="254" height="10" rx="5" fill="rgba(139,124,248,0.22)"/>
+      <!-- Seat dots row -->
+      <circle cx="105" cy="84" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="160" cy="84" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="215" cy="84" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="270" cy="84" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <!-- Labels -->
+      <text x="82" y="69" class="fp-num" dominant-baseline="central">4</text>
+      <text x="118" y="62" class="fp-id fp-id-booth" dominant-baseline="central">Booth · A1</text>
+
+      <!-- ── Booth A2 (section 5, mid-left) ── -->
+      <rect x="50" y="128" width="270" height="68" rx="14" class="fp-booth"/>
+      <rect x="58" y="134" width="254" height="10" rx="5" fill="rgba(139,124,248,0.22)"/>
+      <circle cx="105" cy="177" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="160" cy="177" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="215" cy="177" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="270" cy="177" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <text x="82" y="162" class="fp-num" dominant-baseline="central">5</text>
+      <text x="118" y="155" class="fp-id fp-id-booth" dominant-baseline="central">Booth · A2</text>
+
+      <!-- ── Booth A3 (section 6, bottom-left) ── -->
+      <rect x="50" y="221" width="270" height="68" rx="14" class="fp-booth"/>
+      <rect x="58" y="227" width="254" height="10" rx="5" fill="rgba(139,124,248,0.22)"/>
+      <circle cx="105" cy="270" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="160" cy="270" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="215" cy="270" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <circle cx="270" cy="270" r="5" class="fp-seat-dot fp-seat-dot-booth"/>
+      <text x="82" y="255" class="fp-num" dominant-baseline="central">6</text>
+      <text x="118" y="248" class="fp-id fp-id-booth" dominant-baseline="central">Booth · A3</text>
+
+      <!-- ── Table A4 (section 1, top-right) ── -->
+      <rect x="360" y="35" width="270" height="68" rx="14" class="fp-table"/>
+      <!-- Round table visual in center -->
+      <circle cx="495" cy="69" r="18" fill="rgba(232,168,56,0.18)" stroke="rgba(232,168,56,0.4)" stroke-width="1"/>
+      <!-- Chair dots around the table -->
+      <circle cx="495" cy="42" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="522" cy="69" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="495" cy="96" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="468" cy="69" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <text x="382" y="62" class="fp-num" dominant-baseline="central">1</text>
+      <text x="418" y="55" class="fp-id fp-id-table" dominant-baseline="central">Table · A4</text>
+
+      <!-- ── Table A5 (section 2, mid-right) ── -->
+      <rect x="360" y="128" width="270" height="68" rx="14" class="fp-table"/>
+      <circle cx="495" cy="162" r="18" fill="rgba(232,168,56,0.18)" stroke="rgba(232,168,56,0.4)" stroke-width="1"/>
+      <circle cx="495" cy="135" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="522" cy="162" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="495" cy="189" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="468" cy="162" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <text x="382" y="155" class="fp-num" dominant-baseline="central">2</text>
+      <text x="418" y="148" class="fp-id fp-id-table" dominant-baseline="central">Table · A5</text>
+
+      <!-- ── Table A6 (section 3, bottom-right) ── -->
+      <rect x="360" y="221" width="270" height="68" rx="14" class="fp-table"/>
+      <circle cx="495" cy="255" r="18" fill="rgba(232,168,56,0.18)" stroke="rgba(232,168,56,0.4)" stroke-width="1"/>
+      <circle cx="495" cy="228" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="522" cy="255" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="495" cy="282" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <circle cx="468" cy="255" r="5" class="fp-seat-dot fp-seat-dot-table"/>
+      <text x="382" y="248" class="fp-num" dominant-baseline="central">3</text>
+      <text x="418" y="241" class="fp-id fp-id-table" dominant-baseline="central">Table · A6</text>
+
+      <!-- Section labels -->
+      <text x="185" y="11" font-family="DM Sans, sans-serif" font-size="10" font-weight="500"
+            letter-spacing="0.1em" text-transform="uppercase" fill="rgba(139,124,248,0.5)"
+            text-anchor="middle">Booths</text>
+      <text x="495" y="11" font-family="DM Sans, sans-serif" font-size="10" font-weight="500"
+            letter-spacing="0.1em" text-transform="uppercase" fill="rgba(232,168,56,0.5)"
+            text-anchor="middle">Tables</text>
+
+    </svg>
+
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-swatch swatch-booth"></div>Booth (bench seating)</div>
+      <div class="legend-item"><div class="legend-swatch swatch-table"></div>Table (round, 4 seats)</div>
+      <div class="legend-item" style="margin-left:auto; font-size:11px; color:var(--faint)">4 seats per zone · 24 total</div>
+    </div>
+  </div>
+</div>
+
+<div class="floor">
+  <div>
+    <div class="section-label">Booths</div>
+    <div class="tables-col" id="boothsCol"></div>
+  </div>
+  <div class="divider">
+    <span class="divider-label">Floor</span>
+  </div>
+  <div>
+    <div class="section-label">Tables</div>
+    <div class="tables-col" id="tablesCol"></div>
+  </div>
+</div>
+
+<div class="action-bar">
+  <button class="btn-save" onclick="saveAll()">Save seating</button>
+  <button class="btn-clear" onclick="clearAll()">Clear all</button>
+  <div class="toast" id="toast">
+    <span>✓</span> Saved
+  </div>
+</div>
+
+<script>
+const BOOTHS = ['A1','A2','A3'];
+const TABLES = ['A4','A5','A6'];
+let data = {};
+
+try { data = JSON.parse(localStorage.getItem('seating_v3') || '{}'); } catch(e){}
+
+function toggleMap() {
+  const btn = document.getElementById('mapToggleBtn');
+  const body = document.getElementById('mapBody');
+  const arrow = document.getElementById('mapArrow');
+  const open = body.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}
+
+function buildCard(id, isBooth) {
+  const names = data[id] || ['','','',''];
+  const filled = names.filter(n => n.trim()).length;
+  const pct = (filled / 4) * 100;
+
+  const card = document.createElement('div');
+  card.className = isBooth ? 'booth-card' : 'table-card';
+
+  const typeLabel = isBooth
+    ? `<span class="type-badge badge-booth">Booth</span>`
+    : `<span class="type-badge badge-table">Table</span>`;
+
+  const idClass = isBooth ? 'booth-id' : 'table-id';
+  const progressClass = isBooth ? 'booth-progress' : 'table-progress';
+
+  const inputsHtml = [0,1,2,3].map(i => `
+    <div class="seat-wrap">
+      <span class="seat-num">${i+1}</span>
+      <input class="seat-input${names[i].trim() ? ' has-val' : ''}"
+        id="${id}_${i}" type="text" placeholder="Guest name"
+        value="${names[i].replace(/"/g,'&quot;')}"
+        oninput="onInput('${id}',${i},this)">
+    </div>`).join('');
+
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="${idClass}">${id} ${typeLabel}</span>
+      <span class="count-badge" id="count-${id}">${filled}/4</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill ${progressClass}" id="prog-${id}" style="width:${pct}%"></div></div>
+    <div class="seats-grid">${inputsHtml}</div>`;
+
+  return card;
+}
+
+function buildAll() {
+  const bc = document.getElementById('boothsCol');
+  const tc = document.getElementById('tablesCol');
+  bc.innerHTML = ''; tc.innerHTML = '';
+  BOOTHS.forEach(id => bc.appendChild(buildCard(id, true)));
+  TABLES.forEach(id => tc.appendChild(buildCard(id, false)));
+  updateStats();
+}
+
+function onInput(id, i, el) {
+  if (!data[id]) data[id] = ['','','',''];
+  data[id][i] = el.value;
+  el.classList.toggle('has-val', el.value.trim().length > 0);
+  const filled = (data[id]).filter(n => n.trim()).length;
+  document.getElementById(`count-${id}`).textContent = filled + '/4';
+  document.getElementById(`prog-${id}`).style.width = (filled / 4 * 100) + '%';
+  updateStats();
+}
+
+function updateStats() {
+  let guests = 0, full = 0;
+  [...BOOTHS, ...TABLES].forEach(id => {
+    const names = data[id] || ['','','',''];
+    const f = names.filter(n => n.trim()).length;
+    guests += f;
+    if (f === 4) full++;
+  });
+  document.getElementById('statGuests').textContent = guests;
+  document.getElementById('statDone').textContent = full + '/6';
+  document.getElementById('statOpen').textContent = 24 - guests;
+}
+
+function saveAll() {
+  [...BOOTHS, ...TABLES].forEach(id => {
+    data[id] = [0,1,2,3].map(i => {
+      const el = document.getElementById(`${id}_${i}`);
+      return el ? el.value : '';
+    });
+  });
+  try { localStorage.setItem('seating_v3', JSON.stringify(data)); } catch(e){}
+  const t = document.getElementById('toast');
+  t.style.display = 'flex';
+  setTimeout(() => t.style.display = 'none', 2200);
+}
+
+function clearAll() {
+  if (!confirm('Clear all guest assignments?')) return;
+  data = {};
+  try { localStorage.removeItem('seating_v3'); } catch(e){}
+  buildAll();
+}
+
+buildAll();
+</script>
+</body>
+</html>
